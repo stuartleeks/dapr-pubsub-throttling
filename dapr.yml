@@ -1,0 +1,21 @@
+version: 1
+common:
+  resourcesPath: ./components
+apps:
+  - appID: processing-service
+    appDirPath: src/processing-service
+    appPort: 5002
+    daprHTTPPort: 3502
+    command: ["npm", "run", "start"]
+    
+  - appID: subscriber
+    appDirPath: src/subscriber
+    appPort: 3000
+    daprHTTPPort: 3500
+    command: ["npm", "run", "start"]
+
+  - appID: publisher
+    appDirPath: src/publisher
+    appPort: 5001
+    daprHTTPPort: 3501
+    command: ["npm", "run", "start"]
