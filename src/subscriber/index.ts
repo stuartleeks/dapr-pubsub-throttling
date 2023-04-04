@@ -57,11 +57,10 @@ async function start() {
                 return; // All done!
             }
 
-            const delay = getRetryAfter(serviceResult);
             if (attempt >= max_attempts) {
                 break;
             }
-
+            const delay = getRetryAfter(serviceResult);
             console.log(`A (${id}): Service returned ${serviceResult.status}, retrying in ${delay}ms`);
             await sleep(delay);
             attempt++;
