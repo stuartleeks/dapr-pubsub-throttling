@@ -5,7 +5,7 @@ app.use(express.json());
 
 app.post('/orders', async (req, res) => {
     const messageId = req.body.id ?? "unknown";
-    console.log(`*** ${messageId} Order received`, req.body);
+    console.log(`*** ${messageId} Order received (timestamp: ${new Date().toISOString()})`, req.body);
     await sleep(200);
     console.log(`*** ${messageId} Order processed`);
     res.sendStatus(200);

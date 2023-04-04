@@ -31,7 +31,7 @@ async function start() {
     });
 
     app.post('/A', async (req, res) => {
-        console.log("A: entered");
+        console.log(`A: entered (timestamp: ${new Date().toISOString()})`);
         const order = req.body.data ? req.body.data : req.body;
         console.log("A: ", order);
 
@@ -49,6 +49,7 @@ async function start() {
             console.log("A: Order passed: " + serviceResult.config.data);
             res.sendStatus(200);
         } else if (serviceResult.status == 429) {
+            // https://docs.dapr.io/reference/api/pubsub_api/#provide-routes-for-dapr-to-deliver-topic-events
             console.log("TODO - retry");
             res.sendStatus(429);
         } else {
