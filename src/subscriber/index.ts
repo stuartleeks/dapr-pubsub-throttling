@@ -47,7 +47,7 @@ async function start() {
         // Invoking a service
         let attempt = 1;
         while (true) {
-            console.log(`A (${id}): invoking service (attepmpt: ${attempt})`);
+            console.log(`A (${id}): invoking service (attempt: ${attempt})`);
             const serviceResult = await axios.post(`${DAPR_HOST}:${DAPR_HTTP_PORT}/orders`, order, axiosConfig);
 
             // https://docs.dapr.io/reference/api/pubsub_api/#provide-routes-for-dapr-to-deliver-topic-events
