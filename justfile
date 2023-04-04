@@ -13,7 +13,7 @@ run-subscriber:
 # Run processing-service to listen for messages
 run-processing-service:
 	# "--app-max-concurrency 1" in dapr run command limits concurrency
-	cd src/processing-service && tsc && dapr run  --app-port 5002 --app-id throttling-processing-service --app-protocol http --dapr-http-port 3502 --resources-path ../../components --config ../../components/appconfig.yaml -- npm run start
+	cd src/processing-service && tsc && dapr run  --app-port 5002 --app-id throttling-processing-service --app-protocol http --dapr-http-port 3502 --resources-path ../../components --config ../../components/appconfig.yaml --app-max-concurrency 2 -- npm run start
 
 
 # Publish a message using publisher-console (send to service bus)
