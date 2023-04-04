@@ -33,7 +33,8 @@ async function start() {
     app.post('/A', async (req, res) => {
         console.log(`A: entered (timestamp: ${new Date().toISOString()})`);
         const order = req.body.data ? req.body.data : req.body;
-        console.log("A: ", order);
+        const id = order.id ?? "unknown";
+        console.log(`A (${id}): `, order);
 
         const axiosConfig : AxiosRequestConfig = {
             headers: {
@@ -43,17 +44,18 @@ async function start() {
           };
 
         // Invoking a service
-        console.log("A: invoking service");
+        console.log(`A (${id}): invoking service`);
         const serviceResult = await axios.post(`${DAPR_HOST}:${DAPR_HTTP_PORT}/orders`, order, axiosConfig);
         if (serviceResult.status >= 200 && serviceResult.status < 300) {
-            console.log("A: Order passed: " + serviceResult.config.data);
+            console.log(`A (${id}): Order passed: ` + serviceResult.config.data);
             res.sendStatus(200);
         } else if (serviceResult.status == 429) {
             // https://docs.dapr.io/reference/api/pubsub_api/#provide-routes-for-dapr-to-deliver-topic-events
-            console.log("TODO - retry");
-            res.sendStatus(429);
+            console.log(`A  (${id}): TODO - retry`);
+            res.send({status: "RETRY"});
+            // res.sendStatus(429);
         } else {
-            console.log("TODO - Failed to process, don't complete message?!");
+            console.log(`A (${id}): TODO - Failed to process, don't complete message?!, status: ${serviceResult.status}`);
             res.sendStatus(400);
         }
     });
