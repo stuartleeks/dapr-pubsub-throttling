@@ -1,6 +1,6 @@
 import bodyParser from 'body-parser';
 import express from 'express';
-import axios from "axios";
+import axios, { AxiosResponse } from "axios";
 import { AxiosRequestConfig } from 'axios';
 
 console.log("subscriber-dapr starting...");
@@ -11,6 +11,7 @@ const DAPR_HTTP_PORT = process.env.DAPR_HTTP_PORT || "3501";
 const PUBSUB_NAME = process.env.PUBSUB_NAME || "pubsub";
 const PUBSUB_TOPIC = process.env.QUEUE_NAME || "orders";
 
+const max_attempts = 5;
 
 async function start() {
     const app: express.Application = express();
@@ -36,32 +37,55 @@ async function start() {
         const id = order.id ?? "unknown";
         console.log(`A (${id}): `, order);
 
-        const axiosConfig : AxiosRequestConfig = {
+        const axiosConfig: AxiosRequestConfig = {
             headers: {
                 "dapr-app-id": "throttling-processing-service"
             },
-            validateStatus : () => true, // don't throw on non 2XX response
-          };
+            validateStatus: () => true, // don't throw on non 2XX response
+        };
 
         // Invoking a service
-        console.log(`A (${id}): invoking service`);
-        const serviceResult = await axios.post(`${DAPR_HOST}:${DAPR_HTTP_PORT}/orders`, order, axiosConfig);
-        if (serviceResult.status >= 200 && serviceResult.status < 300) {
-            console.log(`A (${id}): Order passed: ` + serviceResult.config.data);
-            res.sendStatus(200);
-        } else if (serviceResult.status == 429) {
+        let attempt = 1;
+        while (true) {
+            console.log(`A (${id}): invoking service (attepmpt: ${attempt})`);
+            const serviceResult = await axios.post(`${DAPR_HOST}:${DAPR_HTTP_PORT}/orders`, order, axiosConfig);
+
             // https://docs.dapr.io/reference/api/pubsub_api/#provide-routes-for-dapr-to-deliver-topic-events
-            console.log(`A  (${id}): TODO - retry`);
-            res.send({status: "RETRY"});
-            // res.sendStatus(429);
-        } else {
-            console.log(`A (${id}): TODO - Failed to process, don't complete message?!, status: ${serviceResult.status}`);
-            res.sendStatus(400);
+            if (serviceResult.status >= 200 && serviceResult.status < 300) {
+                console.log(`A (${id}): Order passed: ` + serviceResult.config.data);
+                res.sendStatus(200);
+                return; // All done!
+            }
+
+            const delay = getRetryAfter(serviceResult);
+            if (attempt >= max_attempts) {
+                break;
+            }
+
+            console.log(`A (${id}): Service returned ${serviceResult.status}, retrying in ${delay}ms`);
+            await sleep(delay);
+            attempt++;
         }
+        console.log(`A (${id}): TODO - Failed to process, mark for retry`);
+        res.send({ status: "RETRY" });
     });
 
 
     app.listen(port, () => console.log(`Node App listening on port ${port}!`));
 }
+
+function getRetryAfter(response: AxiosResponse) {
+    // Dapr rate limiting sends ratelimit-reset header
+    // other implementations may send Retry-After header
+    const rateLimitReset = response.headers['ratelimit-reset'];
+    if (rateLimitReset) {
+        return parseInt(rateLimitReset) * 1000; // seconds to milliseconds
+    }
+    return 2000;
+}
+async function sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 
 start();
