@@ -2,6 +2,7 @@ import bodyParser from 'body-parser';
 import express from 'express';
 import axios, { AxiosResponse } from "axios";
 import { AxiosRequestConfig } from 'axios';
+import TokenBucket from "tokenbucket";
 
 console.log("subscriber-dapr starting...");
 
@@ -12,6 +13,14 @@ const PUBSUB_NAME = process.env.PUBSUB_NAME || "pubsub";
 const PUBSUB_TOPIC = process.env.QUEUE_NAME || "orders";
 
 const max_attempts = 5;
+
+// NOTE: this was the initial library I found - worth researching other options!
+const tokenbucket = new TokenBucket({
+    size: 1, // single token, i.e. 1 RPS
+    interval: 1000, // refill every 1100ms (just over the 1s rate limit for processing-service)
+    maxWait: 1000 * 60 * 3, // max wait time of 3 minutes to obtain a token
+    spread: true
+});
 
 async function start() {
     const app: express.Application = express();
@@ -31,46 +40,97 @@ async function start() {
         ]);
     });
 
-    app.post('/A', async (req, res) => {
-        console.log(`A: entered (timestamp: ${new Date().toISOString()})`);
-        const order = req.body.data ? req.body.data : req.body;
-        const id = order.id ?? "unknown";
-        console.log(`A (${id}): `, order);
+    // Use this mapping to handle retries, but not apply any limiting from this service
+    // app.post('/A', handleWithRetry);
 
-        const axiosConfig: AxiosRequestConfig = {
-            headers: {
-                "dapr-app-id": "throttling-processing-service"
-            },
-            validateStatus: () => true, // don't throw on non 2XX response
-        };
-
-        // Invoking a service
-        let attempt = 1;
-        while (true) {
-            console.log(`A (${id}): invoking service (attempt: ${attempt})`);
-            const serviceResult = await axios.post(`${DAPR_HOST}:${DAPR_HTTP_PORT}/orders`, order, axiosConfig);
-
-            // https://docs.dapr.io/reference/api/pubsub_api/#provide-routes-for-dapr-to-deliver-topic-events
-            if (serviceResult.status >= 200 && serviceResult.status < 300) {
-                console.log(`A (${id}): Order passed: ` + serviceResult.config.data);
-                res.sendStatus(200);
-                return; // All done!
-            }
-
-            if (attempt >= max_attempts) {
-                break;
-            }
-            const delay = getRetryAfter(serviceResult);
-            console.log(`A (${id}): Service returned ${serviceResult.status}, retrying in ${delay}ms`);
-            await sleep(delay);
-            attempt++;
-        }
-        console.log(`A (${id}): TODO - Failed to process, mark for retry`);
-        res.send({ status: "RETRY" });
-    });
-
+    // Use this mapping to handle retries and limit the service invocations from this service
+    // through the token bucket
+    app.post('/A', handleWithRetryAndTokenBucket);
 
     app.listen(port, () => console.log(`Node App listening on port ${port}!`));
+}
+
+// handle message using retry on 429 responses from processing service
+async function handleWithRetry(req: express.Request, res: express.Response) {
+    console.log(`A: entered (timestamp: ${new Date().toISOString()})`);
+    const order = req.body.data ? req.body.data : req.body;
+    const id = order.id ?? "unknown";
+    console.log(`A (${id}): `, order);
+
+    const axiosConfig: AxiosRequestConfig = {
+        headers: {
+            "dapr-app-id": "throttling-processing-service"
+        },
+        validateStatus: () => true, // don't throw on non 2XX response
+    };
+
+    // Invoking a service
+    let attempt = 1;
+    while (true) {
+        console.log(`A (${id}): invoking service (attempt: ${attempt})`);
+        const serviceResult = await axios.post(`${DAPR_HOST}:${DAPR_HTTP_PORT}/orders`, order, axiosConfig);
+
+        // https://docs.dapr.io/reference/api/pubsub_api/#provide-routes-for-dapr-to-deliver-topic-events
+        if (serviceResult.status >= 200 && serviceResult.status < 300) {
+            console.log(`A (${id}): Order passed: ` + serviceResult.config.data);
+            res.sendStatus(200);
+            return; // All done!
+        }
+
+        if (attempt >= max_attempts) {
+            break;
+        }
+        const delay = getRetryAfter(serviceResult);
+        console.log(`A (${id}): Service returned ${serviceResult.status}, retrying in ${delay}ms`);
+        await sleep(delay);
+        attempt++;
+    }
+    console.log(`A (${id}): TODO - Failed to process, mark for retry`);
+    res.send({ status: "RETRY" });
+}
+
+
+// handle message using retry on 429 responses from processing service
+// and apply token bucket rate limiting
+async function handleWithRetryAndTokenBucket(req: express.Request, res: express.Response) {
+    console.log(`A: entered (timestamp: ${new Date().toISOString()})`);
+    const order = req.body.data ? req.body.data : req.body;
+    const id = order.id ?? "unknown";
+    console.log(`A (${id}): `, order);
+
+    const axiosConfig: AxiosRequestConfig = {
+        headers: {
+            "dapr-app-id": "throttling-processing-service"
+        },
+        validateStatus: () => true, // don't throw on non 2XX response
+    };
+
+    // Invoking a service
+    let attempt = 1;
+    while (true) {
+        console.log(`A (${id}, attempt: ${attempt}, timestamp: ${new Date().toISOString()}): get token`);
+        await tokenbucket.removeTokens(1); // TODO - handle errors
+
+        console.log(`A (${id}, attempt: ${attempt}, timestamp: ${new Date().toISOString()}): invoking service`);
+        const serviceResult = await axios.post(`${DAPR_HOST}:${DAPR_HTTP_PORT}/orders`, order, axiosConfig);
+
+        // https://docs.dapr.io/reference/api/pubsub_api/#provide-routes-for-dapr-to-deliver-topic-events
+        if (serviceResult.status >= 200 && serviceResult.status < 300) {
+            console.log(`A (${id}): Order passed: ` + serviceResult.config.data);
+            res.sendStatus(200);
+            return; // All done!
+        }
+
+        if (attempt >= max_attempts) {
+            break;
+        }
+        const delay = getRetryAfter(serviceResult);
+        console.log(`A (${id}): Service returned ${serviceResult.status}, retrying in ${delay}ms`);
+        await sleep(delay);
+        attempt++;
+    }
+    console.log(`A (${id}): TODO - Failed to process, mark for retry`);
+    res.send({ status: "RETRY" });
 }
 
 function getRetryAfter(response: AxiosResponse) {

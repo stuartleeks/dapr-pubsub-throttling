@@ -13,6 +13,6 @@ spec:
   - name: redisPassword
     value: ""
   - name: concurrency
-    value: 2
+    value: 1
   - name: redeliverInterval
     value: 10s
