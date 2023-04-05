@@ -3,20 +3,11 @@ kind: Configuration
 metadata:
   name: appconfig
 spec:
+  features:
+    - name: Resiliency
+      enabled: true
+
   httpPipeline:
     handlers:
     - name: ratelimit
       type: middleware.http.ratelimit
-  policies:
-    # Retries are named templates for retry configurations and are instantiated for life of the operation.
-    retries:
-      pubsubRetry:
-        policy: exponential
-        maxInterval: 5m
-        # maxRetries: 10
-  targets:
-    components:
-      pubsub: 
-        retry: pubsubRetry
-      servicebus-pubsub:
-        retry: pubsubRetry

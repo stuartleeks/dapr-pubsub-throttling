@@ -12,7 +12,7 @@ const DAPR_HTTP_PORT = process.env.DAPR_HTTP_PORT || "3501";
 const PUBSUB_NAME = process.env.PUBSUB_NAME || "pubsub";
 const PUBSUB_TOPIC = process.env.QUEUE_NAME || "orders";
 
-const max_attempts = 5;
+const max_attempts = 3; // Tune this - could also add exponential back-off etc
 
 // NOTE: this was the initial library I found - worth researching other options!
 const tokenbucket = new TokenBucket({
