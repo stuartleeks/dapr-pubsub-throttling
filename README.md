@@ -14,11 +14,13 @@ There are various projects under the `src` folder
 | processing-service | A simple fake service for subscriber to call. Sleeps for 200ms and has rate limiting applied in config       |
 
 
-## Running the services locally
+## Running  locally
+
+Before running services locally, run `dapr init` to initialize dapr.
 
 To run the processing-service, launch a terminal and run `just run-processing-service`.
 
-Similarly, to run the subscriber, launch a terminal and run `just run-subscriber`.
+Similarly, to run the subscriber, launch a terminal and run `just run-subscriber-simple`. (To run the token-bucket version, run `just run-subscriber-token-bucket` instead.)
 
 To publish messages use the publisher:
 

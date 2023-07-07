@@ -12,6 +12,8 @@ const DAPR_HTTP_PORT = process.env.DAPR_HTTP_PORT || "3501";
 const PUBSUB_NAME = process.env.PUBSUB_NAME || "pubsub";
 const PUBSUB_TOPIC = process.env.QUEUE_NAME || "orders";
 
+const HANDLER_TYPE = process.env.HANDLER_TYPE?.toUpperCase() || "SIMPLE"; // SIMPLE or TOKEN_BUCKET
+
 const max_attempts = 3; // Tune this - could also add exponential back-off etc
 
 // NOTE: this was the initial library I found - worth researching other options!
@@ -35,7 +37,7 @@ async function start() {
             {
                 pubsubname: PUBSUB_NAME,
                 topic: PUBSUB_TOPIC,
-                route: "A"
+                route: "/handle-message"
             }
         ]);
     });
@@ -45,7 +47,13 @@ async function start() {
 
     // Use this mapping to handle retries and limit the service invocations from this service
     // through the token bucket
-    app.post('/A', handleWithRetryAndTokenBucket);
+    if (HANDLER_TYPE === "TOKEN_BUCKET") {
+        console.log("Using token bucket handler");
+        app.post('/handle-message', handleWithRetryAndTokenBucket);
+    } else {
+        console.log("Using simple handler");
+        app.post('/handle-message', handleWithRetry);
+    }
 
     app.listen(port, () => console.log(`Node App listening on port ${port}!`));
 }
