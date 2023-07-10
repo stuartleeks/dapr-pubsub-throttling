@@ -60,10 +60,10 @@ async function start() {
 
 // handle message using retry on 429 responses from processing service
 async function handleWithRetry(req: express.Request, res: express.Response) {
-    console.log(`A: entered (timestamp: ${new Date().toISOString()})`);
+    console.log(`handleWithRetry: entered (timestamp: ${new Date().toISOString()})`);
     const order = req.body.data ? req.body.data : req.body;
     const id = order.id ?? "unknown";
-    console.log(`A (${id}): `, order);
+    console.log(`handleWithRetry (${id}): `, order);
 
     const axiosConfig: AxiosRequestConfig = {
         headers: {
@@ -75,12 +75,12 @@ async function handleWithRetry(req: express.Request, res: express.Response) {
     // Invoking a service
     let attempt = 1;
     while (true) {
-        console.log(`A (${id}): invoking service (attempt: ${attempt})`);
+        console.log(`handleWithRetry (${id}): invoking service (attempt: ${attempt})`);
         const serviceResult = await axios.post(`${DAPR_HOST}:${DAPR_HTTP_PORT}/orders`, order, axiosConfig);
 
         // https://docs.dapr.io/reference/api/pubsub_api/#provide-routes-for-dapr-to-deliver-topic-events
         if (serviceResult.status >= 200 && serviceResult.status < 300) {
-            console.log(`A (${id}): Order passed: ` + serviceResult.config.data);
+            console.log(`handleWithRetry (${id}): Order passed: ` + serviceResult.config.data);
             res.sendStatus(200);
             return; // All done!
         }
@@ -89,11 +89,11 @@ async function handleWithRetry(req: express.Request, res: express.Response) {
             break;
         }
         const delay = getRetryAfter(serviceResult);
-        console.log(`A (${id}): Service returned ${serviceResult.status}, retrying in ${delay}ms`);
+        console.log(`handleWithRetry (${id}): Service returned ${serviceResult.status}, retrying in ${delay}ms`);
         await sleep(delay);
         attempt++;
     }
-    console.log(`A (${id}): TODO - Failed to process, mark for retry`);
+    console.log(`handleWithRetry (${id}): TODO - Failed to process, mark for retry`);
     res.send({ status: "RETRY" });
 }
 
@@ -101,10 +101,10 @@ async function handleWithRetry(req: express.Request, res: express.Response) {
 // handle message using retry on 429 responses from processing service
 // and apply token bucket rate limiting
 async function handleWithRetryAndTokenBucket(req: express.Request, res: express.Response) {
-    console.log(`A: entered (timestamp: ${new Date().toISOString()})`);
+    console.log(`handleWithRetryAndTokenBucket: entered (timestamp: ${new Date().toISOString()})`);
     const order = req.body.data ? req.body.data : req.body;
     const id = order.id ?? "unknown";
-    console.log(`A (${id}): `, order);
+    console.log(`handleWithRetryAndTokenBucket (${id}): `, order);
 
     const axiosConfig: AxiosRequestConfig = {
         headers: {
@@ -116,15 +116,15 @@ async function handleWithRetryAndTokenBucket(req: express.Request, res: express.
     // Invoking a service
     let attempt = 1;
     while (true) {
-        console.log(`A (${id}, attempt: ${attempt}, timestamp: ${new Date().toISOString()}): get token`);
+        console.log(`handleWithRetryAndTokenBucket (${id}, attempt: ${attempt}, timestamp: ${new Date().toISOString()}): get token`);
         await tokenbucket.removeTokens(1); // TODO - handle errors
 
-        console.log(`A (${id}, attempt: ${attempt}, timestamp: ${new Date().toISOString()}): invoking service`);
+        console.log(`handleWithRetryAndTokenBucket (${id}, attempt: ${attempt}, timestamp: ${new Date().toISOString()}): invoking service`);
         const serviceResult = await axios.post(`${DAPR_HOST}:${DAPR_HTTP_PORT}/orders`, order, axiosConfig);
 
         // https://docs.dapr.io/reference/api/pubsub_api/#provide-routes-for-dapr-to-deliver-topic-events
         if (serviceResult.status >= 200 && serviceResult.status < 300) {
-            console.log(`A (${id}): Order passed: ` + serviceResult.config.data);
+            console.log(`handleWithRetryAndTokenBucket (${id}): Order passed: ` + serviceResult.config.data);
             res.sendStatus(200);
             return; // All done!
         }
@@ -133,11 +133,11 @@ async function handleWithRetryAndTokenBucket(req: express.Request, res: express.
             break;
         }
         const delay = getRetryAfter(serviceResult);
-        console.log(`A (${id}): Service returned ${serviceResult.status}, retrying in ${delay}ms`);
+        console.log(`handleWithRetryAndTokenBucket (${id}): Service returned ${serviceResult.status}, retrying in ${delay}ms`);
         await sleep(delay);
         attempt++;
     }
-    console.log(`A (${id}): TODO - Failed to process, mark for retry`);
+    console.log(`handleWithRetryAndTokenBucket (${id}): TODO - Failed to process, mark for retry`);
     res.send({ status: "RETRY" });
 }
 

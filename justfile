@@ -3,6 +3,7 @@ default:
 	just --list
 
 default_count:="1"
+default_handler_type:="SIMPLE"
 
 # Run subscriber to listen for messages
 run-subscriber-simple: 
@@ -27,5 +28,9 @@ publish-message-local count=default_count:
 
 
 # deploy (create AKS cluster, deploy dapr components, services etc)
-deploy:
-	./deploy.sh
+deploy handler_type=default_handler_type:
+	SUBSCRIBER_HANDLER_TYPE={{handler_type}} ./deploy.sh
+
+# Deploy apps to k8s
+deploy-to-k8s handler_type=default_handler_type:
+	SUBSCRIBER_HANDLER_TYPE={{handler_type}} ./scripts/deploy-to-k8s.sh

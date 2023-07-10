@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: throttling-processing-service
+  labels:
+    app: throttling-processing-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: throttling-processing-service
+  template:
+    metadata:
+      labels:
+        app: throttling-processing-service
+      annotations:
+        # https://docs.dapr.io/reference/arguments-annotations-overview/
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "throttling-processing-service"
+        dapr.io/app-port: "5002"
+        dapr.io/enable-api-logging: "true"
+        dapr.io/config: "testappconfig"
+    spec:
+      containers:
+      - name: subscriber
+        image: $REGISTRY_NAME/processing-service:latest
+        ports:
+        - containerPort: 5002
+        imagePullPolicy: Always
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: throttling-processing-service
+# spec:
+#   selector:
+#     app: throttling-processing-service
+#   ports:
+#   - protocol: TCP
+#     port: 5002
+#     targetPort: 5002

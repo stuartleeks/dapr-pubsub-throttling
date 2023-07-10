@@ -20,6 +20,8 @@ az acr login --name "$acr_name"
 docker build -t "$acr_login_server/subscriber" src/subscriber
 docker push "$acr_login_server/subscriber"
 
+docker build -t "$acr_login_server/processing-service" src/processing-service
+docker push "$acr_login_server/processing-service"
 
 docker build -t "$acr_login_server/publisher" src/publisher
 docker push "$acr_login_server/publisher"

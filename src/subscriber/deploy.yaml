@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: subscriber
+  labels:
+    app: subscriber
+    azure.workload.identity/use: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: subscriber
+  template:
+    metadata:
+      labels:
+        app: subscriber
+        azure.workload.identity/use: "true"
+        azure.workload.identity/inject-proxy-sidecar: "true"
+      annotations:
+        # https://docs.dapr.io/reference/arguments-annotations-overview/
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "subscriber"
+        dapr.io/app-port: "3000"
+        dapr.io/enable-api-logging: "true"
+        dapr.io/config: "testappconfig"
+    spec:
+      serviceAccountName: subscriber
+      containers:
+      - name: subscriber
+        image: $REGISTRY_NAME/subscriber:latest
+        env:
+        - name: HANDLER_TYPE
+          value: $HANDLER_TYPE
+        ports:
+        - containerPort: 3000
+        imagePullPolicy: Always

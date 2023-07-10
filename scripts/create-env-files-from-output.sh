@@ -22,14 +22,20 @@ if [[ ${#service_bus_namespace_name} -eq 0 ]]; then
 fi
 service_bus_connection_string=$(az servicebus namespace authorization-rule keys list --resource-group $RESOURCE_GROUP --namespace-name $service_bus_namespace_name --name RootManageSharedAccessKey --query primaryConnectionString -o tsv)
 
-subscriber_sdk_simplified_client_id=$(jq -r '.subscriber_sdk_simplified_client_id' < "$output_file")
-if [[ ${#subscriber_sdk_simplified_client_id} -eq 0 ]]; then
-  echo 'ERROR: Missing output value subscriber_sdk_simplified_client_id' 1>&2
+service_bus_namespace_qualified_name=$(jq -r '.service_bus_namespace_qualified_name' < "$output_file")
+if [[ ${#service_bus_namespace_qualified_name} -eq 0 ]]; then
+  echo 'ERROR: Missing output value service_bus_namespace_qualified_name' 1>&2
   exit 6
 fi
-subscriber_sdk_direct_client_id=$(jq -r '.subscriber_sdk_direct_client_id' < "$output_file")
-if [[ ${#subscriber_sdk_direct_client_id} -eq 0 ]]; then
-  echo 'ERROR: Missing output value subscriber_sdk_direct_client_id' 1>&2
+
+subscriber_client_id=$(jq -r '.subscriber_client_id' < "$output_file")
+if [[ ${#subscriber_client_id} -eq 0 ]]; then
+  echo 'ERROR: Missing output value subscriber_client_id' 1>&2
+  exit 6
+fi
+publisher_client_id=$(jq -r '.publisher_client_id' < "$output_file")
+if [[ ${#publisher_client_id} -eq 0 ]]; then
+  echo 'ERROR: Missing output value publisher_client_id' 1>&2
   exit 6
 fi
 
@@ -37,7 +43,7 @@ fi
 cat <<EOF > "$script_dir/../components.k8s/pubsub.secret.yaml"
 apiVersion: v1
 data:
-  connectionString: $(echo -n "$service_bus_connection_string" | base64 -w 0)
+   namespaceName: $(echo -n "$service_bus_namespace_qualified_name" | base64 -w 0)
 kind: Secret
 metadata:
   name: servicebus-pubsub-secret
@@ -55,6 +61,13 @@ cat <<EOF > "$script_dir/../src/publisher/secrets.json"
 EOF
 echo "CREATED: local secret file for publisher"
 
+cat <<EOF > "$script_dir/../src/publisher-console/.env"
+SERVICE_BUS_CONNECTION_STRING=$service_bus_connection_string
+
+EOF
+echo "CREATED: .env file for publisher-console"
+
+
 cat <<EOF > "$script_dir/../src/subscriber/secrets.json"
 {
   "SERVICE_BUS_CONNECTION_STRING": "$service_bus_connection_string"
@@ -63,20 +76,9 @@ EOF
 echo "CREATED: local secret file for subscriber"
 
 
-cat <<EOF > "$script_dir/../src/subscriber-sdk-direct/.env"
-SERVICE_BUS_CONNECTION_STRING="$service_bus_connection_string"
-EOF
-echo "CREATED: env file for SDK subscriber-sdk-direct"
-
-cat <<EOF > "$script_dir/../src/subscriber-sdk-simplified/.env"
-SERVICE_BUS_CONNECTION_STRING="$service_bus_connection_string"
-EOF
-echo "CREATED: env file for SDK subscriber-sdk-simplified"
-
-
 service_account_namespace="default"
-service_account_name="subscriber-sdk-simplified"
-client_id=$subscriber_sdk_simplified_client_id
+service_account_name="subscriber"
+client_id=$subscriber_client_id
 cat <<EOF > "$script_dir/../components.k8s/serviceaccount-${service_account_name}.secret.yaml"
 apiVersion: v1
 kind: ServiceAccount
@@ -92,8 +94,8 @@ echo "CREATED: k8s service account file for $service_account_name"
 
 
 service_account_namespace="default"
-service_account_name="subscriber-sdk-direct"
-client_id=$subscriber_sdk_direct_client_id
+service_account_name="publisher"
+client_id=$publisher_client_id
 cat <<EOF > "$script_dir/../components.k8s/serviceaccount-${service_account_name}.secret.yaml"
 apiVersion: v1
 kind: ServiceAccount

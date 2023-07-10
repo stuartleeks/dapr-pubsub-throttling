@@ -15,26 +15,24 @@ if [[ ${#service_bus_namespace_qualified_name} -eq 0 ]]; then
   exit 6
 fi
 
-echo "### Deploying components"
+handler_type=$SUBSCRIBER_HANDLER_TYPE
+if [[ ${#handler_type} -eq 0 ]]; then
+  handler_type=SIMPLE
+  echo "### SUBSCRIBER_HANDLER_TYPE not set, using default $handler_type"
+else
+  echo "### Using handler type $handler_type"
+fi
+
+
+echo "### Deploying components.k8s"
 kubectl apply -f "$script_dir/../components.k8s"
 
-
-echo "### Deploying subscriber-dapr-api"
-cat "$script_dir/../src/subscriber-dapr-api/deploy.yaml" \
-  | REGISTRY_NAME=$acr_login_server SERVICE_BUS_NAMESPACE=$service_bus_namespace_qualified_name envsubst \
+echo "### Deploying processing-service"
+cat "$script_dir/../src/processing-service/deploy.yaml" \
+  | REGISTRY_NAME=$acr_login_server envsubst \
   | kubectl apply -f -
 
-echo "### Deploying subscriber-dapr-simplified"
-cat "$script_dir/../src/subscriber-dapr-simplified/deploy.yaml" \
-  | REGISTRY_NAME=$acr_login_server SERVICE_BUS_NAMESPACE=$service_bus_namespace_qualified_name envsubst \
-  | kubectl apply -f -
-
-echo "### Deploying subscriber-sdk-direct"
-cat "$script_dir/../src/subscriber-sdk-direct/deploy.yaml" \
-  | REGISTRY_NAME=$acr_login_server SERVICE_BUS_NAMESPACE=$service_bus_namespace_qualified_name envsubst \
-  | kubectl apply -f -
-
-echo "### Deploying subscriber-sdk-simplified"
-cat "$script_dir/../src/subscriber-sdk-simplified/deploy.yaml" \
-  | REGISTRY_NAME=$acr_login_server SERVICE_BUS_NAMESPACE=$service_bus_namespace_qualified_name envsubst \
+echo "### Deploying subscriber"
+cat "$script_dir/../src/subscriber/deploy.yaml" \
+  | REGISTRY_NAME=$acr_login_server SERVICE_BUS_NAMESPACE=$service_bus_namespace_qualified_name HANDLER_TYPE=$handler_type envsubst \
   | kubectl apply -f -

@@ -1,0 +1,29 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: pubsub
+spec:
+  # https://docs.dapr.io/reference/components-reference/supported-pubsub/setup-azure-servicebus-queues/
+  type: pubsub.azure.servicebus.queues
+  initTimeout: 1m
+  version: v1
+  metadata:
+  - name: namespaceName
+    secretKeyRef:
+      name: servicebus-pubsub-secret
+      key: namespaceName
+  - name: handlerTimeoutInSec
+    value: 120
+  - name: lockDurationInSec
+    value: 3
+  - name: lockRenewalInSec
+    value: 2
+  - name: defaultMessageTimeToLiveInSec
+    value: 2592000 # 30 * 24 * 60 * 60 
+  # - name: maxConcurrentHandlers
+  #   value: 20
+  # - name: maxActiveMessages
+  #   value: 20
+  - name: maxDeliveryCount
+    value: 10
+

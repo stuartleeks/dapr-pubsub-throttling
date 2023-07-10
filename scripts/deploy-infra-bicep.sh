@@ -21,8 +21,6 @@ fi
 
 az group create --name $RESOURCE_GROUP --location $LOCATION
 
-
-cd "$script_dir/../infra"
 cat << EOF > "$script_dir/../infra/azuredeploy.parameters.json"
 {
   "\$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",

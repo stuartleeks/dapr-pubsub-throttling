@@ -9,7 +9,7 @@ dotenv.config();
 
 
 const connectionString = process.env.SERVICE_BUS_CONNECTION_STRING;
-const queueName = process.env.QUEUE_NAME;
+const queueName = process.env.QUEUE_NAME || "orders";
 
 export async function main(): Promise<void> {
 
